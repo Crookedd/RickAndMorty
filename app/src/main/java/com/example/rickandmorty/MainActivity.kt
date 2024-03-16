@@ -31,6 +31,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var charactersData: Results
     private lateinit var adapter: CharacterAdapter
+    private val retrofitService: RickAndMortyApiService = RetrofitClient.getClient("https://rickandmortyapi.com/api/").create(
+        RickAndMortyApiService::class.java)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -38,9 +40,10 @@ class MainActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.r_view)
         recyclerView.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
 
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val characterRetrofit = RickAndMortyApiService.create().getCharacters()
+                val characterRetrofit = retrofitService.getCharacters()
                 charactersData = characterRetrofit
                 withContext(Dispatchers.Main) {
                     adapter = CharacterAdapter(this@MainActivity, charactersData)
@@ -68,15 +71,18 @@ data class Character(val id: Int, val name: String, val species: String, val ima
 interface RickAndMortyApiService {
     @GET("character")
     suspend fun getCharacters(): Results
+}
+object RetrofitClient {
+    private var retrofit: Retrofit? = null
 
-    companion object {
-        fun create(): RickAndMortyApiService {
-            return Retrofit.Builder()
-                .baseUrl("https://rickandmortyapi.com/api/")
+    fun getClient(baseUrl: String): Retrofit {
+        if (retrofit == null) {
+            retrofit = Retrofit.Builder()
+                .baseUrl(baseUrl)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
-                .create(RickAndMortyApiService::class.java)
         }
+        return retrofit!!
     }
 }
 
