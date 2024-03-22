@@ -29,33 +29,25 @@ import retrofit2.http.GET
 
 class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
-    private lateinit var charactersData: Results
     private lateinit var adapter: CharacterAdapter
-    private val retrofitService: RickAndMortyApiService = RetrofitClient.getClient("https://rickandmortyapi.com/api/").create(
-        RickAndMortyApiService::class.java)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val viewModel = ViewModelProvider(this).get(CharacterViewModel::class.java)
+
+        adapter = CharacterAdapter() // Инициализация адаптера здесь
 
         recyclerView = findViewById(R.id.r_view)
         recyclerView.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        recyclerView.adapter = adapter // Присваивание адаптера к RecyclerView
 
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val characterRetrofit = retrofitService.getCharacters()
-                charactersData = characterRetrofit
-                withContext(Dispatchers.Main) {
-                    adapter = CharacterAdapter(this@MainActivity, charactersData)
-                    recyclerView.adapter = adapter
-                }
-            } catch (ex: Exception) {
-                ex.printStackTrace()
-            }
-        }
-
+        viewModel.getCharacters().observe(this, { characters ->
+            adapter.submitList(characters.results)
+        })
     }
 }
+
 
 data class Character(val id: Int, val name: String, val species: String, val image: String) {
     fun getType(): Int {
@@ -87,11 +79,17 @@ object RetrofitClient {
 }
 
 data class Results(val results: List<Character>)
-class CharacterAdapter(private val context: Context, private val characters: Results) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+class CharacterAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    private var characters: List<Character> = listOf()
+
+    fun submitList(characters: List<Character>) {
+        this.characters = characters
+        notifyDataSetChanged()
+    }
     override fun getItemViewType(position: Int): Int {
-        if (characters.results[position].getType() == 1) {
+        if (characters[position].getType() == 1) {
             return R.layout.image
-        } else if (characters.results[position].getType() == 2) {
+        } else if (characters[position].getType() == 2) {
             return R.layout.name
         }
 
@@ -112,16 +110,16 @@ class CharacterAdapter(private val context: Context, private val characters: Res
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         if (holder is ImageViewHolder) {
-            holder.bind(characters.results[position])
+            holder.bind(characters[position])
         } else if (holder is NameViewHolder) {
-            holder.bind(characters.results[position])
+            holder.bind(characters[position])
         } else {
-            (holder as SpeciesViewHolder).bind(characters.results[position])
+            (holder as SpeciesViewHolder).bind(characters[position])
         }
     }
 
     override fun getItemCount(): Int {
-        return characters.results.size
+        return characters.size
     }
 
     class ImageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
